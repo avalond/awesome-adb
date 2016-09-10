@@ -18,7 +18,8 @@ ADB，即 [Android Debug Bridge](https://developer.android.com/studio/command-li
 * [设备连接管理](#设备连接管理)
 	* [查询已连接设备/模拟器](#查询已连接设备模拟器)
 	* [USB 连接](#usb-连接)
-	* [无线连接](#无线连接)
+	* [无线连接（需要借助 USB 线）](#无线连接需要借助-usb-线)
+	* [无线连接（无需借助 USB 线）](#无线连接无需借助-usb-线)
 * [应用管理](#应用管理)
 	* [查看应用列表](#查看应用列表)
 		* [所有应用](#所有应用)
@@ -86,6 +87,8 @@ ADB，即 [Android Debug Bridge](https://developer.android.com/studio/command-li
 	* [查看进程](#查看进程)
 	* [查看实时资源占用情况](#查看实时资源占用情况)
 	* [其它](#其它)
+* [adb 的非官方实现](#adb-的非官方实现)
+* [致谢](#致谢)
 * [参考链接](#参考链接)
 
 ## 基本用法
@@ -155,8 +158,8 @@ adb version
 示例输出：
 
 ```sh
-Android Debug Bridge version 1.0.32
-Revision 09a0d98bebce-android
+Android Debug Bridge version 1.0.36
+Revision 8f855a3d9b35-android
 ```
 
 ### 以 root 权限运行 adbd
@@ -268,13 +271,13 @@ emulator-5554	device
 
    说明连接成功。
 
-### 无线连接
+### 无线连接（需要借助 USB 线）
 
 除了可以通过 USB 连接设备与电脑来使用 adb，也可以通过无线连接——虽然连接过程中也有需要使用 USB 的步骤，但是连接成功之后你的设备就可以在一定范围内摆脱 USB 连接线的限制啦！
 
 操作步骤：
 
-1. 将 Android 设备与将运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
+1. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
 
 2. 将设备与电脑通过 USB 线连接。
 
@@ -325,6 +328,41 @@ emulator-5554	device
 ```sh
 adb disconnect <device-ip-address>
 ```
+
+### 无线连接（无需借助 USB 线）
+
+**注：需要 root 权限。**
+
+上一节「无线连接（需要借助 USB 线）」是官方文档里介绍的方法，需要借助于 USB 数据线来实现无线连接。
+
+既然我们想要实现无线连接，那能不能所有步骤下来都是无线的呢？答案是能的。
+
+1. 在 Android 设备上安装一个终端模拟器。
+
+   已经安装过的设备可以跳过此步。我使用的终端模拟器下载地址是：[Terminal Emulator for Android Downloads](https://jackpal.github.io/Android-Terminal-Emulator/)
+
+2. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
+
+3. 打开 Android 设备上的终端模拟器，在里面依次运行命令：
+
+   ```sh
+   su
+   setprop service.adb.tcp.port 5555
+   ```
+
+4. 找到 Android 设备的 IP 地址。
+
+   一般能在「设置」-「关于手机」-「状态信息」-「IP地址」找到。
+
+5. 在电脑上通过 adb 和 IP 地址连接 Android 设备。
+
+   ```sh
+   adb connect <device-ip-address>
+   ```
+
+   这里的 `<device-ip-address>` 就是上一步中找到的设备 IP 地址。
+
+   如果能看到 `connected to <device-ip-address>:5555` 这样的输出则表示连接成功。
 
 ## 应用管理
 
@@ -408,25 +446,36 @@ adb shell pm list packages | grep mazhuang
 
 ### 安装 APK
 
-命令：
+命令格式：
 
 ```sh
-adb install <apk file>
+adb install [-lrtsdg] <path_to_apk>
 ```
 
 参数：
 
-`adb install` 后面可以跟一些参数来控制安装 APK 的行为，常用参数及含义如下：
+`adb install` 后面可以跟一些可选参数来控制安装 APK 的行为，可用参数及含义如下：
 
-| 参数 | 含义                  |
-|------|-----------------------|
-| -r   | 允许覆盖安装。        |
-| -s   | 将应用安装到 sdcard。 |
-| -d   | 允许降级覆盖安装。    |
+| 参数 | 含义                                                                              |
+|------|-----------------------------------------------------------------------------------|
+| -l   | 将应用安装到保护目录 /mnt/asec                                                    |
+| -r   | 允许覆盖安装                                                                      |
+| -t   | 允许安装 AndroidManifest.xml 里 application 指定 `android:testOnly="true"` 的应用 |
+| -s   | 将应用安装到 sdcard                                                               |
+| -d   | 允许降级覆盖安装                                                                  |
+| -g   | 授予所有运行时权限                                                                |
 
-完整参数列表及含义可以直接运行 `adb` 命令然后查看 `adb install [-lrtsdg] <file>` 一节。
+运行命令后如果见到类似如下输出（状态为 `Success`）代表安装成功：
 
-如果见到类似如下输出（状态为 `Success`）代表安装成功：
+```sh
+[100%] /data/local/tmp/1.apk
+	pkg: /data/local/tmp/1.apk
+Success
+```
+
+上面是当前最新版 v1.0.36 的 adb 的输出，会显示 push apk 文件到手机的进度百分比。
+
+使用旧版本 adb 的输出则是这样的：
 
 ```sh
 12040 KB/s (22205609 bytes in 1.801s)
@@ -434,7 +483,15 @@ adb install <apk file>
 Success
 ```
 
-而如果状态为 `Failure` 则表示安装失败。常见安装失败输出代码、含义及可能的解决办法如下：
+而如果状态为 `Failure` 则表示安装失败，比如：
+
+```sh
+[100%] /data/local/tmp/map-20160831.apk
+        pkg: /data/local/tmp/map-20160831.apk
+Failure [INSTALL_FAILED_ALREADY_EXISTS]
+```
+
+常见安装失败输出代码、含义及可能的解决办法如下：
 
 | 输出                                               | 含义                                                                     | 解决办法                                        |
 |----------------------------------------------------|--------------------------------------------------------------------------|-------------------------------------------------|
@@ -491,6 +548,18 @@ Success
 | Permission denied ... sdcard ...                   | sdcard 不可用                                                            |                                                 |
 
 参考：[PackageManager.java](https://github.com/android/platform_frameworks_base/blob/master/core%2Fjava%2Fandroid%2Fcontent%2Fpm%2FPackageManager.java)
+
+*`adb install` 内部原理简介*
+
+`adb install` 实际是分三步完成：
+
+1. push apk 文件到 /data/local/tmp。
+
+2. 调用 pm install 安装。
+
+3. 删除 /data/local/tmp 下的对应 apk 文件。
+
+所以，必要的时候也可以根据这个步骤，手动分步执行安装过程。
 
 ### 卸载应用
 
@@ -1753,6 +1822,20 @@ Usage: top [ -m max_procs ] [ -n iterations ] [ -d delay ] [ -s sort_column ] [ 
 | ps    | 查看正在运行的进程          |
 | rm    | 删除文件                    |
 | top   | 查看进程的资源占用情况      |
+
+## adb 的非官方实现
+
+* [fb-adb](https://github.com/facebook/fb-adb) - A better shell for Android devices (for Mac).
+
+## 致谢
+
+感谢朋友们无私的分享与补充。
+
+* [zxning](https://github.com/zxning)
+* [linhua55](https://github.com/linhua55)
+* [codeskyblue](https://github.com/codeskyblue)
+* [seasonyuu](https://github.com/seasonyuu)
+* [fan123199](https://github.com/fan123199)
 
 ## 参考链接
 
